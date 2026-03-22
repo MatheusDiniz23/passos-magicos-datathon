@@ -30,9 +30,13 @@ try:
     model_data = load_model()
     model    = model_data["model"]
     features = model_data["features"]
-    # Load threshold from artifact when available; fall back to tuned default.
-    # 0.35 was chosen to favour recall, reducing missed at-risk students.
-    threshold = model_data.get("threshold", 0.35)
+    # THRESHOLD — hardcoded and intentionally NOT read from the model artifact.
+    # The artifact stores a threshold (~0.83) optimised for the training objective,
+    # which is far too conservative for an educational-risk use-case and causes
+    # virtually every student to be classified as LOW RISK.
+    # 0.30 was chosen deliberately to favour recall: it is better to flag a
+    # student who turns out to be fine than to miss one who genuinely needs help.
+    threshold = 0.30
 except Exception as e:
     st.error(f"Erro ao carregar o modelo: {e}")
     st.stop()
