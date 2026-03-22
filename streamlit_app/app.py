@@ -1,3 +1,17 @@
+"""
+app.py — Datathon Passos Mágicos  (v2.0)
+=========================================
+Sistema de Predição de Risco de Lacunas de Aprendizado.
+
+Alinhamento com o modelo v2.0
+-------------------------------
+Features usadas (9):
+  Brutas   : IDA, IEG, IAA, IPS, IPP, IPV
+  Derivadas: perception_gap, behavioral_score, relative_performance
+
+O modelo NÃO usa IAN, INDE real, nem year — apenas o que os sliders fornecem.
+"""
+
 import streamlit as st
 import pickle
 import pandas as pd
@@ -13,30 +27,23 @@ st.set_page_config(
 )
 
 st.title("🎯 Predição de Risco de Lacunas de Aprendizado")
-st.markdown("**Datathon Passos Mágicos** - Sistema de Identificação de Alunos em Risco")
+st.markdown("**Datathon Passos Mágicos** — Sistema de Identificação de Alunos em Risco")
 
 # ─────────────────────────────────────────────
 # Model loading
 # ─────────────────────────────────────────────
 @st.cache_resource
 def load_model():
-    base_dir = Path(__file__).resolve().parents[1]
+    base_dir = Path(__file__).resolve().parent.parent
     model_path = base_dir / "models" / "model_risk_gap.pkl"
     with open(model_path, "rb") as f:
-        model_data = pickle.load(f)
-    return model_data
+        return pickle.load(f)
 
 try:
     model_data = load_model()
-    model    = model_data["model"]
-    features = model_data["features"]
-    # THRESHOLD — hardcoded and intentionally NOT read from the model artifact.
-    # The artifact stores a threshold (~0.83) optimised for the training objective,
-    # which is far too conservative for an educational-risk use-case and causes
-    # virtually every student to be classified as LOW RISK.
-    # 0.30 was chosen deliberately to favour recall: it is better to flag a
-    # student who turns out to be fine than to miss one who genuinely needs help.
-    threshold = 0.30
+    model     = model_data["model"]
+    features  = model_data["features"]
+    threshold = model_data["threshold"]   # 0.35 — orientado a recall
 except Exception as e:
     st.error(f"Erro ao carregar o modelo: {e}")
     st.stop()
@@ -64,18 +71,13 @@ with col2:
     IPV = st.slider("🎯 Ponto de Virada (IPV)",        0.0, 10.0, 5.0, step=0.1)
 
 # ─────────────────────────────────────────────
-# Feature engineering
-# NOTE: INDE is used here as a proxy equal to IDA for simplification.
-# In the original dataset INDE is a composite index; a full implementation
-# would recompute it from its weighted components.
+# Feature engineering — idêntica ao treinamento
 # ─────────────────────────────────────────────
-INDE               = IDA                    # proxy — see note above
-perception_gap     = IAA - IDA              # self-perception vs. academic performance
-behavioral_score   = (IEG + IPS) / 2        # average of engagement and psychosocial support
-relative_performance = IDA - 7              # deviation from the programme's reference benchmark
+perception_gap       = IAA - IDA              # gap entre autopercepção e desempenho
+behavioral_score     = (IEG + IPS) / 2        # média de engajamento e suporte
+relative_performance = IDA - 7                # desvio em relação ao benchmark do programa
 
 feature_values = {
-    "INDE":                 INDE,
     "IDA":                  IDA,
     "IEG":                  IEG,
     "IAA":                  IAA,
@@ -93,37 +95,19 @@ feature_values = {
 st.markdown("---")
 if st.button("🔮 Realizar Predição", use_container_width=True):
     try:
-        # Build input DataFrame in the exact column order the model was trained on
+        # Montar DataFrame na ordem exata em que o modelo foi treinado
         input_df = pd.DataFrame(
             [[feature_values[f] for f in features]],
             columns=features
         )
 
-        # Raw model probability — this value is NEVER modified after this point
+        # Probabilidade bruta do modelo — nunca modificada após este ponto
         probability = model.predict_proba(input_df)[0][1]
 
-        # ── Business interpretation warning ──────────────────────────────────
-        # When every raw indicator is exceptionally high the prediction may fall
-        # outside the distribution the model was trained on.  We surface this as
-        # an informational notice rather than altering the model output.
-        raw_indicators = [IDA, IEG, IAA, IPS, IPP, IPV]
-        if min(raw_indicators) >= 9:
-            st.warning(
-                "⚠️ **Todos os indicadores estão em níveis muito elevados.** "
-                "Interprete a predição com cautela — este perfil pode estar fora "
-                "da distribuição de treino do modelo."
-            )
-        elif IDA >= 8 and IEG >= 8 and IPS >= 8 and IPP >= 8 and IPV >= 8:
-            st.info(
-                "ℹ️ **A maioria dos indicadores está em níveis elevados.** "
-                "A predição abaixo é o resultado direto do modelo."
-            )
-        # ─────────────────────────────────────────────────────────────────────
-
-        # Threshold-based classification (recall-oriented: 0.35 < 0.50)
+        # Classificação baseada no threshold
         is_high_risk = probability >= threshold
 
-        # ── Result display ────────────────────────────────────────────────────
+        # ── Resultado ────────────────────────────────────────────────────────
         st.markdown("---")
         st.subheader("📋 Resultado da Predição")
 
@@ -136,7 +120,6 @@ if st.button("🔮 Realizar Predição", use_container_width=True):
                 st.metric("Status", "🟢 BAIXO RISCO", f"{probability * 100:.1f}%")
 
         with col2:
-            # Distance from the decision boundary expressed as a plain label
             distance = abs(probability - threshold)
             if distance < 0.07:
                 confidence_label = "⚠️ Borderline"
@@ -151,11 +134,10 @@ if st.button("🔮 Realizar Predição", use_container_width=True):
             text=f"Probabilidade de risco (saída do modelo): {probability * 100:.2f}%"
         )
 
-        # Transparency captions — values shown are always the unaltered model output
-        st.caption(f"Threshold de classificação: {threshold:.3f}")
+        st.caption(f"Threshold de classificação: {threshold:.2f}")
         st.caption(f"Probabilidade bruta do modelo: {probability:.4f}")
 
-        # ── Interpretation ────────────────────────────────────────────────────
+        # ── Interpretação ─────────────────────────────────────────────────────
         st.markdown("---")
         st.subheader("💡 Interpretação")
 
@@ -166,17 +148,18 @@ if st.button("🔮 Realizar Predição", use_container_width=True):
                 "**Recomendações:**\n"
                 "- Realizar acompanhamento pedagógico intensivo\n"
                 "- Avaliar suporte psicossocial\n"
-                "- Ajustar plano individual\n"
-                "- Aumentar monitoramento"
+                "- Ajustar plano individual de desenvolvimento\n"
+                "- Aumentar frequência de monitoramento"
             )
         else:
             st.success(
                 "✅ **Este aluno foi identificado como tendo BAIXO RISCO.**\n\n"
                 "- Manter acompanhamento regular\n"
-                "- Continuar estratégias atuais"
+                "- Continuar as estratégias pedagógicas atuais\n"
+                "- Monitorar evolução nos próximos ciclos"
             )
 
-        # ── Factor analysis table ─────────────────────────────────────────────
+        # ── Tabela de fatores ─────────────────────────────────────────────────
         st.markdown("---")
         st.subheader("🔍 Análise de Fatores")
 
@@ -184,28 +167,37 @@ if st.button("🔮 Realizar Predição", use_container_width=True):
             "Fator": [
                 "Desempenho Acadêmico (IDA)",
                 "Engajamento (IEG)",
-                "Gap de Percepção (IAA − IDA)",
+                "Autoavaliação (IAA)",
                 "Suporte Psicossocial (IPS)",
                 "Progresso Pessoal (IPP)",
                 "Ponto de Virada (IPV)",
+                "Gap de Percepção (IAA − IDA)",
+                "Score Comportamental",
+                "Desempenho Relativo (IDA − 7)",
             ],
             "Valor": [
                 f"{IDA:.1f}",
                 f"{IEG:.1f}",
-                f"{perception_gap:+.1f}",
+                f"{IAA:.1f}",
                 f"{IPS:.1f}",
                 f"{IPP:.1f}",
                 f"{IPV:.1f}",
+                f"{perception_gap:+.1f}",
+                f"{behavioral_score:.1f}",
+                f"{relative_performance:+.1f}",
             ],
             "Status": [
                 "🟢 Bom"  if IDA >= 6 else "🟡 Médio" if IDA >= 4 else "🔴 Baixo",
                 "🟢 Bom"  if IEG >= 6 else "🟡 Médio" if IEG >= 4 else "🔴 Baixo",
-                ("🟢 Alinhado" if abs(perception_gap) <= 2
-                 else "🟡 Moderado" if abs(perception_gap) <= 4
-                 else "🔴 Desalinhado"),
+                "🟢 Bom"  if IAA >= 6 else "🟡 Médio" if IAA >= 4 else "🔴 Baixo",
                 "🟢 Bom"  if IPS >= 6 else "🟡 Médio" if IPS >= 4 else "🔴 Baixo",
                 "🟢 Bom"  if IPP >= 6 else "🟡 Médio" if IPP >= 4 else "🔴 Baixo",
                 "🟢 Bom"  if IPV >= 6 else "🟡 Médio" if IPV >= 4 else "🔴 Baixo",
+                ("🟢 Alinhado" if abs(perception_gap) <= 2
+                 else "🟡 Moderado" if abs(perception_gap) <= 4
+                 else "🔴 Desalinhado"),
+                "🟢 Bom"  if behavioral_score >= 6 else "🟡 Médio" if behavioral_score >= 4 else "🔴 Baixo",
+                "🟢 Acima" if relative_performance >= 0 else "🟡 Próximo" if relative_performance >= -1 else "🔴 Abaixo",
             ],
         }
 
