@@ -27,7 +27,7 @@ def load_model():
 try:
     model_data = load_model()
     model = model_data["model"]
-    threshold = model_data["threshold"]
+    threshold = 0.30
     features = model_data["features"]
 except Exception as e:
     st.error(f"Erro ao carregar o modelo: {e}")
