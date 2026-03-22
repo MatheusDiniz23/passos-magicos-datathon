@@ -38,7 +38,7 @@ st.markdown("---")
 st.subheader("📊 Indicadores do Aluno")
 st.markdown("Utilize os sliders abaixo para inserir os indicadores de desenvolvimento do aluno (escala 0-10):")
 
-# Criação dos sliders em duas colunas
+# Sliders
 col1, col2 = st.columns(2)
 
 with col1:
@@ -51,13 +51,12 @@ with col2:
     IPP = st.slider("📈 Progresso Pessoal (IPP)", 0.0, 10.0, 5.0, step=0.1)
     IPV = st.slider("🎯 Ponto de Virada (IPV)", 0.0, 10.0, 5.0, step=0.1)
 
-# Cálculo de features derivadas
+# Feature engineering
 INDE = IDA
 perception_gap = IAA - IDA
 behavioral_score = (IEG + IPS) / 2
 relative_performance = IDA - 7
 
-# Mapeamento completo das variáveis possíveis
 feature_values = {
     "INDE": INDE,
     "IDA": IDA,
@@ -71,21 +70,32 @@ feature_values = {
     "relative_performance": relative_performance,
 }
 
-# Botão de predição
+# Predição
 st.markdown("---")
 if st.button("🔮 Realizar Predição", use_container_width=True):
     try:
-        # Monta o input exatamente na ordem esperada pelo modelo
         input_df = pd.DataFrame(
             [[feature_values[f] for f in features]],
             columns=features
         )
 
-        # Predição
         probability = model.predict_proba(input_df)[0][1]
+
+        # =========================
+        # 🔥 REGRA DE SANIDADE (NOVO)
+        # =========================
+        high_inputs = [IDA, IEG, IAA, IPS, IPP, IPV]
+
+        if min(high_inputs) >= 9:
+            probability = min(probability, 0.10)
+
+        elif IDA >= 8 and IEG >= 8 and IPS >= 8 and IPP >= 8 and IPV >= 8:
+            probability = min(probability, 0.20)
+
+        # Classificação
         is_high_risk = probability >= threshold
 
-        # Exibir resultado
+        # Resultado
         st.markdown("---")
         st.subheader("📋 Resultado da Predição")
 
@@ -102,11 +112,11 @@ if st.button("🔮 Realizar Predição", use_container_width=True):
 
         st.progress(float(probability), text=f"Probabilidade de Risco: {probability*100:.2f}%")
 
-        # Debug útil para validação
+        # Debug
         st.caption(f"Threshold do modelo: {threshold:.3f}")
         st.caption(f"Probabilidade prevista: {probability:.3f}")
 
-        # Explicação
+        # Interpretação
         st.markdown("---")
         st.subheader("💡 Interpretação")
 
@@ -115,20 +125,18 @@ if st.button("🔮 Realizar Predição", use_container_width=True):
                 "⚠️ **Este aluno foi identificado como tendo ALTO RISCO de lacunas de aprendizado.**\n\n"
                 "**Recomendações:**\n"
                 "- Realizar acompanhamento pedagógico intensivo\n"
-                "- Avaliar necessidade de suporte psicossocial adicional\n"
-                "- Considerar ajustes no plano de desenvolvimento individual\n"
-                "- Aumentar frequência de avaliações de progresso"
+                "- Avaliar suporte psicossocial\n"
+                "- Ajustar plano individual\n"
+                "- Aumentar monitoramento"
             )
         else:
             st.success(
                 "✅ **Este aluno foi identificado como tendo BAIXO RISCO.**\n\n"
-                "**Próximos passos:**\n"
-                "- Continuar monitoramento regular\n"
-                "- Manter estratégias pedagógicas atuais\n"
-                "- Explorar oportunidades de aprofundamento"
+                "- Manter acompanhamento regular\n"
+                "- Continuar estratégias atuais"
             )
 
-        # Fatores de risco
+        # Fatores
         st.markdown("---")
         st.subheader("🔍 Análise de Fatores")
 
