@@ -52,10 +52,10 @@ with col2:
     IPV = st.slider("🎯 Ponto de Virada (IPV)", 0.0, 10.0, 5.0, step=0.1)
 
 # Cálculo de features derivadas
-INDE = (IDA + IEG + IAA + IPS + IPP + IPV) / 6
+INDE = IDA
 perception_gap = IAA - IDA
 behavioral_score = (IEG + IPS) / 2
-relative_performance = IDA - 5
+relative_performance = IDA - 7
 
 # Mapeamento completo das variáveis possíveis
 feature_values = {
