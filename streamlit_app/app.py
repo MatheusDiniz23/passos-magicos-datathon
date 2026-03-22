@@ -159,6 +159,6 @@ if st.button("🔮 Realizar Predição", use_container_width=True):
         df_factors = pd.DataFrame(factor_data)
         st.dataframe(df_factors, use_container_width=True, hide_index=True)
 
-        except Exception as e:
+    except Exception as e:
         st.error("Erro na predição:")
         st.exception(e)
