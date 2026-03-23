@@ -67,3 +67,28 @@ O projeto inclui uma aplicação interativa em **Streamlit**, que permite:
 ---
 
 ## Estrutura do Projeto
+
+├── data/
+├── models/
+├── notebooks/
+├── streamlit_app/
+├── requirements.txt
+└── README.md
+
+
+---
+
+## Tecnologias
+
+- Python  
+- Pandas / NumPy  
+- Scikit-learn  
+- Streamlit  
+
+---
+
+## Próximos Passos
+
+- Evolução do modelo com novos dados  
+- Melhorias de interpretabilidade  
+- Integração com sistemas educacionais  
